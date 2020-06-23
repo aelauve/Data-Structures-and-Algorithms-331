@@ -1,0 +1,54 @@
+#Super Digit
+def super_digit(n):
+    num = str(n)
+    if n // 10 == 0:
+        return n
+    else:
+        return super_digit(int(num[0]) + super_digit(int(num[1:])))
+        
+#Pascal's Triangle
+import math
+def pascal(row, column):
+    if row == 0:
+        return 1
+    elif column == 0 or row == column:
+        return 1
+    else:
+        return pascal(row-1,column-1) + pascal(row-1, column)
+        
+#Subset Product
+def can_make_product(p, vals):
+    if len(vals) < 1:
+        return False
+    elif len(vals) == 1 and vals[0] == p:
+        return True
+    else:
+        return can_make_product(p/vals[0], vals[1:]) or can_make_product(p, vals[1:])
+        
+#Block Voting Systems
+def number_ties(blocks, for_votes=0, against_votes=0):
+    if not blocks and for_votes == against_votes:
+        return 1
+    elif not blocks:
+        return 0
+    else:
+        votes = blocks[0]
+        return number_ties(blocks[1:],for_votes+votes,against_votes) + number_ties(blocks[1:],for_votes,against_votes+votes)
+        
+def deciding_votes_per_block(blocks):
+    dec_votes = []
+    for i in range(len(blocks)):
+        spec_block = blocks.pop()
+        dec_votes.append(_num_deciding_votes(blocks, spec_block))
+        blocks.insert(0,spec_block)
+    dec_votes.reverse()
+    return dec_votes
+
+def _num_deciding_votes(blocks, spec_block, for_votes=0, against_votes=0):
+    if not blocks and ((for_votes+spec_block) < against_votes or for_votes > (against_votes+spec_block)):
+        return 0
+    elif not blocks and (for_votes <= (against_votes+spec_block) or (for_votes+spec_block) >= against_votes):
+        return 1
+    else:
+        votes = blocks[0]
+        return _num_deciding_votes(blocks[1:], spec_block, (for_votes+votes), against_votes) + _num_deciding_votes(blocks[1:], spec_block, for_votes, (against_votes+votes))
