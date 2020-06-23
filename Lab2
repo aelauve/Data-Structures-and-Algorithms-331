@@ -1,339 +1,39 @@
-{
-  "cells": [
-    {
-      "metadata": {
-        "state": "normal"
-      },
-      "cell_type": "markdown",
-      "source": "# Lab 02: N-grams\n\n## Overview\n\nAn *n-gram* -- in the context of parsing natural languages such as English -- is a sequence of *n* consecutive *tokens* (which we might define as characters separated by whitespace) from some passage of text. Based on the following passage:\n\n> I really really like cake.\n\nWe have the following 2-grams:\n\n    [('I', 'really'), ('really', 'really'), ('really', 'like'), ('like', 'cake.')]\n\nAnd the following 3-grams:\n\n    [('I', 'really', 'really'),\n     ('really', 'really', 'like'),\n     ('really', 'like', 'cake.')]\n\n(I omit a 1-gram listing because it would merely be a list of all tokens in the original text.)\n\nAmong other things, n-grams are useful for describing the vocabulary of and statistical correlation between tokens in a sample body of text (e.g., as taken from a book). We can use an n-gram model to determine the likelihood of finding\na particular sequence of words after another. This information, in turn, can be used to generate passages of text that statistically mimic the sample.\n\nWe can convert the above 3-gram list into the following lookup structure (i.e., a dictionary mapping strings to lists of 2-tuples), where the first token of each n-gram maps to all sequences that follow it in the text:\n\n    {'I': [('really', 'really')],\n     'really': [('really', 'like'), ('like', 'cake.')]}\n\nWe can now generate passages of text using the following method:\n\n1. Select a random key and use it as the start token of the passage. It will also serve as the current token for the next step.\n2. Select a random tuple from the list associated with the current token and append the sequence to the passage. The last token of the selected sequence will be the new current token.\n3. If the current token is a key in the dictionary then simply repeat step 2, otherwise select another random key from the dictionary as the current token and append it to the passage before repeating step 2.\n\nE.g., we might start by selecting `'I'` in step (1), which gives us `('really', 'really')` as our only choice in (2). The second `'really'` in that tuple is the new current token (which is a valid key), which takes us back to (2) and gives us a choice between two tuples. If we choose `('like', 'cake.')`, then we have `'cake.'` as our new current token --- it is not a key in the map, however, so we'd have to choose a new random key if we wanted to generate a longer passage. Either way, the passage we've generated thus far is `'I really really like cake.'` (which also happens to be the original passage).\n\nHere's a lengthier passage that could be generated from the 3-gram dictionary above -- note that for clarity I've added `*`'s every time a new random key is selected (i.e., when the previous token isn't a key in the dictionary):\n\n> \\* really like cake. \\* I really really really like \\* really like cake. \\* I really really really like \\* really\n\nThis gets more interesting when we build n-gram dictionaries from lengthier bodies of text. For instance, the following text was generated (with a little programmed embellishment for prettier capitalization and punctuation) from a 3-gram dictionary extracted from Romeo's famous balcony monologue:\n\n> Lamp her eyes were there they in their spheres till they in her eyes in all the fairest stars in all the heaven having some business do wear it is my love! O it is envious her cheek would through the heaven having some business do entreat her eyes were there they in their spheres till they in her eyes to.\n\nFor reference, here is the dictionary entry for the token `'her'` used to generate the above:\n\n    'her': [('maid', 'art'),\n            ('maid', 'since'),\n            ('vestal', 'livery'),\n            ('eyes', 'to'),\n            ('eyes', 'were'),\n            ('head?', 'The'),\n            ('cheek', 'would'),\n            ('eyes', 'in'),\n            ('cheek', 'upon'),\n            ('hand!', 'O')],\n\nIf you haven't already guessed it, your assignment is to implement a function that constructs an n-gram dictionary from a list of strings (tokens), and another that returns a passage of text generated from a given n-gram dictionary."
-    },
-    {
-      "metadata": {
-        "state": "normal"
-      },
-      "cell_type": "markdown",
-      "source": "## Implementation Details\n\nBefore you start working on the aforementioned functions, it's important to consider how we'll be parsing passages for tokens.\n\nHere's the body of Romeo's balcony soliloquy:"
-    },
-    {
-      "metadata": {
-        "deletable": false,
-        "editable": false,
-        "id": "romeo",
-        "nbgrader": {
-          "grade": false,
-          "grade_id": "romeo",
-          "locked": true,
-          "schema_version": 1,
-          "solution": false
-        },
-        "state": "read_only",
-        "trusted": true
-      },
-      "cell_type": "code",
-      "source": "ROMEO_SOLILOQUY = \"\"\"\n        But, soft! what light through yonder window breaks?\n        It is the east, and Juliet is the sun.\n        Arise, fair sun, and kill the envious moon,\n        who is already sick and pale with grief, \n        That thou her maid art far more fair than she:\n        be not her maid, since she is envious;\n        her vestal livery is but sick and green\n        and none but fools do wear it; cast it off.\n        It is my lady, O, it is my love! \n        O, that she knew she were!\n        She speaks yet she says nothing: what of that?\n        Her eye discourses; I will answer it.\n        I am too bold, 'tis not to me she speaks:\n        two of the fairest stars in all the heaven, \n        having some business, do entreat her eyes\n        to twinkle in their spheres till they return.\n        What if her eyes were there, they in her head?\n        The brightness of her cheek would shame those stars,\n        as daylight doth a lamp; her eyes in heaven \n        would through the airy region stream so bright\n        that birds would sing and think it were not night.\n        See, how she leans her cheek upon her hand!\n        O, that I were a glove upon that hand,\n        that I might touch that cheek!\"\"\"",
-      "execution_count": 3,
-      "outputs": []
-    },
-    {
-      "metadata": {
-        "state": "normal"
-      },
-      "cell_type": "markdown",
-      "source": "Using the string's built-in `split` method --- previously mentioned in class --- along with `lower`, we can derive from the passage a list of tokens."
-    },
-    {
-      "metadata": {
-        "state": "normal",
-        "trusted": true
-      },
-      "cell_type": "code",
-      "source": "toks = [t.lower() for t in ROMEO_SOLILOQUY.split()]\n\ntoks[:8]",
-      "execution_count": 4,
-      "outputs": [
-        {
-          "data": {
-            "text/plain": "['but,', 'soft!', 'what', 'light', 'through', 'yonder', 'window', 'breaks?']"
-          },
-          "execution_count": 4,
-          "metadata": {},
-          "output_type": "execute_result"
-        }
-      ]
-    },
-    {
-      "metadata": {
-        "state": "normal"
-      },
-      "cell_type": "markdown",
-      "source": "We could do more interesting things (such as separating out punctuation), but we'll keep our parser simple. For the sake of consistency, we'll rely on this fairly straighttforward approach to parsing. Onwards!\n\n### `compute_ngrams`\n\nYour first task is to write `compute_ngrams`, which will take a list of tokens, a value `n` indicating the n-gram length (e.g., 3 for 3-grams), and return an n-gram dictionary. The keys in the returned dictionary should all be strings, whose values will be lists of one or more tuples. Note that even in the case of `n`=2 (which would be the minimum value) the dictionary should map strings to lists of 1-tuples (i.e., instead of to lists of individual tokens)."
-    },
-    {
-      "metadata": {
-        "deletable": false,
-        "id": "compute_ngrams",
-        "nbgrader": {
-          "grade": false,
-          "grade_id": "compute_ngrams",
-          "locked": false,
-          "schema_version": 1,
-          "solution": true
-        },
-        "starter_code": "def compute_ngrams(toks, n=2):\n    \"\"\"Returns an n-gram dictionary based on the provided list of tokens.\"\"\"\n    ",
-        "state": "graded",
-        "trusted": true
-      },
-      "cell_type": "code",
-      "source": "def compute_ngrams(toks, n=2):\n    \n    phrases=[]\n    for i in range(len(toks)-(n-1)):\n        phrases.append(toks[i:i+n])\n    \n    \n    \"\"\"Returns an n-gram dictionary based on the provided list of tokens.\"\"\"\n    newDict={}\n    for x in phrases:  #x=list\n        if x[0] not in newDict: #if the first word is not yet a keyword\n            newDict[x[0]]=[tuple([x for x in x[1:(n+1)]])]\n        else:\n            newDict[x[0]]+=[tuple([x for x in x[1:(n+1)]])]\n    \n    return newDict\n    ",
-      "execution_count": 43,
-      "outputs": [
-        {
-          "data": {
-            "text/plain": "{'but,': [('soft!', 'what', 'light')],\n 'soft!': [('what', 'light', 'through')],\n 'what': [('light', 'through', 'yonder'),\n  ('of', 'that?', 'her'),\n  ('if', 'her', 'eyes')],\n 'light': [('through', 'yonder', 'window')],\n 'through': [('yonder', 'window', 'breaks?'), ('the', 'airy', 'region')],\n 'yonder': [('window', 'breaks?', 'it')],\n 'window': [('breaks?', 'it', 'is')],\n 'breaks?': [('it', 'is', 'the')],\n 'it': [('is', 'the', 'east,'),\n  ('off.', 'it', 'is'),\n  ('is', 'my', 'lady,'),\n  ('is', 'my', 'love!'),\n  ('were', 'not', 'night.')],\n 'is': [('the', 'east,', 'and'),\n  ('the', 'sun.', 'arise,'),\n  ('already', 'sick', 'and'),\n  ('envious;', 'her', 'vestal'),\n  ('but', 'sick', 'and'),\n  ('my', 'lady,', 'o,'),\n  ('my', 'love!', 'o,')],\n 'the': [('east,', 'and', 'juliet'),\n  ('sun.', 'arise,', 'fair'),\n  ('envious', 'moon,', 'who'),\n  ('fairest', 'stars', 'in'),\n  ('heaven,', 'having', 'some'),\n  ('brightness', 'of', 'her'),\n  ('airy', 'region', 'stream')],\n 'east,': [('and', 'juliet', 'is')],\n 'and': [('juliet', 'is', 'the'),\n  ('kill', 'the', 'envious'),\n  ('pale', 'with', 'grief,'),\n  ('green', 'and', 'none'),\n  ('none', 'but', 'fools'),\n  ('think', 'it', 'were')],\n 'juliet': [('is', 'the', 'sun.')],\n 'sun.': [('arise,', 'fair', 'sun,')],\n 'arise,': [('fair', 'sun,', 'and')],\n 'fair': [('sun,', 'and', 'kill'), ('than', 'she:', 'be')],\n 'sun,': [('and', 'kill', 'the')],\n 'kill': [('the', 'envious', 'moon,')],\n 'envious': [('moon,', 'who', 'is')],\n 'moon,': [('who', 'is', 'already')],\n 'who': [('is', 'already', 'sick')],\n 'already': [('sick', 'and', 'pale')],\n 'sick': [('and', 'pale', 'with'), ('and', 'green', 'and')],\n 'pale': [('with', 'grief,', 'that')],\n 'with': [('grief,', 'that', 'thou')],\n 'grief,': [('that', 'thou', 'her')],\n 'that': [('thou', 'her', 'maid'),\n  ('she', 'knew', 'she'),\n  ('birds', 'would', 'sing'),\n  ('i', 'were', 'a'),\n  ('hand,', 'that', 'i'),\n  ('i', 'might', 'touch')],\n 'thou': [('her', 'maid', 'art')],\n 'her': [('maid', 'art', 'far'),\n  ('maid,', 'since', 'she'),\n  ('vestal', 'livery', 'is'),\n  ('eye', 'discourses;', 'i'),\n  ('eyes', 'to', 'twinkle'),\n  ('eyes', 'were', 'there,'),\n  ('head?', 'the', 'brightness'),\n  ('cheek', 'would', 'shame'),\n  ('eyes', 'in', 'heaven'),\n  ('cheek', 'upon', 'her'),\n  ('hand!', 'o,', 'that')],\n 'maid': [('art', 'far', 'more')],\n 'art': [('far', 'more', 'fair')],\n 'far': [('more', 'fair', 'than')],\n 'more': [('fair', 'than', 'she:')],\n 'than': [('she:', 'be', 'not')],\n 'she:': [('be', 'not', 'her')],\n 'be': [('not', 'her', 'maid,')],\n 'not': [('her', 'maid,', 'since'),\n  ('to', 'me', 'she'),\n  ('night.', 'see,', 'how')],\n 'maid,': [('since', 'she', 'is')],\n 'since': [('she', 'is', 'envious;')],\n 'she': [('is', 'envious;', 'her'),\n  ('knew', 'she', 'were!'),\n  ('were!', 'she', 'speaks'),\n  ('speaks', 'yet', 'she'),\n  ('says', 'nothing:', 'what'),\n  ('speaks:', 'two', 'of'),\n  ('leans', 'her', 'cheek')],\n 'envious;': [('her', 'vestal', 'livery')],\n 'vestal': [('livery', 'is', 'but')],\n 'livery': [('is', 'but', 'sick')],\n 'but': [('sick', 'and', 'green'), ('fools', 'do', 'wear')],\n 'green': [('and', 'none', 'but')],\n 'none': [('but', 'fools', 'do')],\n 'fools': [('do', 'wear', 'it;')],\n 'do': [('wear', 'it;', 'cast'), ('entreat', 'her', 'eyes')],\n 'wear': [('it;', 'cast', 'it')],\n 'it;': [('cast', 'it', 'off.')],\n 'cast': [('it', 'off.', 'it')],\n 'off.': [('it', 'is', 'my')],\n 'my': [('lady,', 'o,', 'it'), ('love!', 'o,', 'that')],\n 'lady,': [('o,', 'it', 'is')],\n 'o,': [('it', 'is', 'my'), ('that', 'she', 'knew'), ('that', 'i', 'were')],\n 'love!': [('o,', 'that', 'she')],\n 'knew': [('she', 'were!', 'she')],\n 'were!': [('she', 'speaks', 'yet')],\n 'speaks': [('yet', 'she', 'says')],\n 'yet': [('she', 'says', 'nothing:')],\n 'says': [('nothing:', 'what', 'of')],\n 'nothing:': [('what', 'of', 'that?')],\n 'of': [('that?', 'her', 'eye'),\n  ('the', 'fairest', 'stars'),\n  ('her', 'cheek', 'would')],\n 'that?': [('her', 'eye', 'discourses;')],\n 'eye': [('discourses;', 'i', 'will')],\n 'discourses;': [('i', 'will', 'answer')],\n 'i': [('will', 'answer', 'it.'),\n  ('am', 'too', 'bold,'),\n  ('were', 'a', 'glove'),\n  ('might', 'touch', 'that')],\n 'will': [('answer', 'it.', 'i')],\n 'answer': [('it.', 'i', 'am')],\n 'it.': [('i', 'am', 'too')],\n 'am': [('too', 'bold,', \"'tis\")],\n 'too': [('bold,', \"'tis\", 'not')],\n 'bold,': [(\"'tis\", 'not', 'to')],\n \"'tis\": [('not', 'to', 'me')],\n 'to': [('me', 'she', 'speaks:'), ('twinkle', 'in', 'their')],\n 'me': [('she', 'speaks:', 'two')],\n 'speaks:': [('two', 'of', 'the')],\n 'two': [('of', 'the', 'fairest')],\n 'fairest': [('stars', 'in', 'all')],\n 'stars': [('in', 'all', 'the')],\n 'in': [('all', 'the', 'heaven,'),\n  ('their', 'spheres', 'till'),\n  ('her', 'head?', 'the'),\n  ('heaven', 'would', 'through')],\n 'all': [('the', 'heaven,', 'having')],\n 'heaven,': [('having', 'some', 'business,')],\n 'having': [('some', 'business,', 'do')],\n 'some': [('business,', 'do', 'entreat')],\n 'business,': [('do', 'entreat', 'her')],\n 'entreat': [('her', 'eyes', 'to')],\n 'eyes': [('to', 'twinkle', 'in'),\n  ('were', 'there,', 'they'),\n  ('in', 'heaven', 'would')],\n 'twinkle': [('in', 'their', 'spheres')],\n 'their': [('spheres', 'till', 'they')],\n 'spheres': [('till', 'they', 'return.')],\n 'till': [('they', 'return.', 'what')],\n 'they': [('return.', 'what', 'if'), ('in', 'her', 'head?')],\n 'return.': [('what', 'if', 'her')],\n 'if': [('her', 'eyes', 'were')],\n 'were': [('there,', 'they', 'in'),\n  ('not', 'night.', 'see,'),\n  ('a', 'glove', 'upon')],\n 'there,': [('they', 'in', 'her')],\n 'head?': [('the', 'brightness', 'of')],\n 'brightness': [('of', 'her', 'cheek')],\n 'cheek': [('would', 'shame', 'those'), ('upon', 'her', 'hand!')],\n 'would': [('shame', 'those', 'stars,'),\n  ('through', 'the', 'airy'),\n  ('sing', 'and', 'think')],\n 'shame': [('those', 'stars,', 'as')],\n 'those': [('stars,', 'as', 'daylight')],\n 'stars,': [('as', 'daylight', 'doth')],\n 'as': [('daylight', 'doth', 'a')],\n 'daylight': [('doth', 'a', 'lamp;')],\n 'doth': [('a', 'lamp;', 'her')],\n 'a': [('lamp;', 'her', 'eyes'), ('glove', 'upon', 'that')],\n 'lamp;': [('her', 'eyes', 'in')],\n 'heaven': [('would', 'through', 'the')],\n 'airy': [('region', 'stream', 'so')],\n 'region': [('stream', 'so', 'bright')],\n 'stream': [('so', 'bright', 'that')],\n 'so': [('bright', 'that', 'birds')],\n 'bright': [('that', 'birds', 'would')],\n 'birds': [('would', 'sing', 'and')],\n 'sing': [('and', 'think', 'it')],\n 'think': [('it', 'were', 'not')],\n 'night.': [('see,', 'how', 'she')],\n 'see,': [('how', 'she', 'leans')],\n 'how': [('she', 'leans', 'her')],\n 'leans': [('her', 'cheek', 'upon')],\n 'upon': [('her', 'hand!', 'o,'), ('that', 'hand,', 'that')],\n 'hand!': [('o,', 'that', 'i')],\n 'glove': [('upon', 'that', 'hand,')],\n 'hand,': [('that', 'i', 'might')],\n 'might': [('touch', 'that', 'cheek!')]}"
-          },
-          "execution_count": 43,
-          "metadata": {},
-          "output_type": "execute_result"
-        }
-      ]
-    },
-    {
-      "metadata": {
-        "state": "normal"
-      },
-      "cell_type": "markdown",
-      "source": "And now for some simple tests:"
-    },
-    {
-      "metadata": {
-        "deletable": false,
-        "editable": false,
-        "id": "test_compute_ngrams",
-        "nbgrader": {
-          "grade": true,
-          "grade_id": "test_compute_ngrams",
-          "locked": true,
-          "points": 5,
-          "schema_version": 1,
-          "solution": false
-        },
-        "state": "read_only",
-        "trusted": true
-      },
-      "cell_type": "code",
-      "source": "# (5 points)\n\nfrom unittest import TestCase\ntc = TestCase()\n\nsimple_toks = [t.lower() for t in 'I really really like cake.'.split()]\n\ncompute_ngrams(simple_toks)\ntc.assertEqual(compute_ngrams(simple_toks), \n               {'i': [('really',)], 'like': [('cake.',)], 'really': [('really',), ('like',)]})\ntc.assertEqual(compute_ngrams(simple_toks, n=3), \n               {'i': [('really', 'really')],\n                'really': [('really', 'like'), ('like', 'cake.')]})\n\nromeo_toks = [t.lower() for t in ROMEO_SOLILOQUY.split()]\n\ndct = compute_ngrams(romeo_toks, n=4)\ntc.assertEqual(dct['but'], [('sick', 'and', 'green'), ('fools', 'do', 'wear')])\ntc.assertEqual(dct['it'], \n              [('is', 'the', 'east,'),\n               ('off.', 'it', 'is'),\n               ('is', 'my', 'lady,'),\n               ('is', 'my', 'love!'),\n               ('were', 'not', 'night.')])",
-      "execution_count": 44,
-      "outputs": []
-    },
-    {
-      "metadata": {
-        "state": "normal"
-      },
-      "cell_type": "markdown",
-      "source": "I've also placed the entire text of Peter Pan (courtesy of [Project Gutenberg][]) on the server, to be used to stress test your function just a bit. Evaluate the following cell to read the text of the book into `peter_pan_text`.\n\nIf you're not on the course server, you can uncomment the line to read the text directly from the Project Gutenberg website and comment out the lines which access the file for testing.\n\n[Project Gutenberg]: http://gutenberg.org"
-    },
-    {
-      "metadata": {
-        "deletable": false,
-        "editable": false,
-        "id": "load_peter_pan",
-        "state": "read_only",
-        "trusted": true
-      },
-      "cell_type": "code",
-      "source": "import urllib.request\nPETER_PAN_URL      = 'https://moss.cs.iit.edu/cs331/data/peterpan.txt'\n\npeter_pan_text = urllib.request.urlopen(PETER_PAN_URL).read().decode()\nchapt1_start = peter_pan_text.index('All children')\nprint(peter_pan_text[chapt1_start:chapt1_start+1000])",
-      "execution_count": 45,
-      "outputs": [
-        {
-          "name": "stdout",
-          "output_type": "stream",
-          "text": "All children, except one, grow up. They soon know that they will grow\r\nup, and the way Wendy knew was this. One day when she was two years old\r\nshe was playing in a garden, and she plucked another flower and ran with\r\nit to her mother. I suppose she must have looked rather delightful, for\r\nMrs. Darling put her hand to her heart and cried, “Oh, why can't you\r\nremain like this for ever!” This was all that passed between them on\r\nthe subject, but henceforth Wendy knew that she must grow up. You always\r\nknow after you are two. Two is the beginning of the end.\r\n\r\nOf course they lived at 14 [their house number on their street], and\r\nuntil Wendy came her mother was the chief one. She was a lovely lady,\r\nwith a romantic mind and such a sweet mocking mouth. Her romantic\r\nmind was like the tiny boxes, one within the other, that come from the\r\npuzzling East, however many you discover there is always one more; and\r\nher sweet mocking mouth had one kiss on it that Wendy could never get,\r\nthough ther\n"
-        }
-      ]
-    },
-    {
-      "metadata": {
-        "state": "normal"
-      },
-      "cell_type": "markdown",
-      "source": "Time for some larger test cases!"
-    },
-    {
-      "metadata": {
-        "deletable": false,
-        "editable": false,
-        "id": "test_compute_ngrams_2",
-        "nbgrader": {
-          "grade": true,
-          "grade_id": "test_compute_ngrams_2",
-          "locked": true,
-          "points": 5,
-          "schema_version": 1,
-          "solution": false
-        },
-        "state": "read_only",
-        "trusted": true
-      },
-      "cell_type": "code",
-      "source": "# (5 points)\n\nfrom unittest import TestCase\ntc = TestCase()\n\npp_toks = [t.lower() for t in peter_pan_text.split()]\ndct = compute_ngrams(pp_toks, n=3)\ntc.assertEqual(dct['crocodile'], \n               [('passes,', 'but'),\n                ('that', 'happened'),\n                ('would', 'have'),\n                ('was', 'in'),\n                ('passed', 'him,'),\n                ('is', 'about'),\n                ('climbing', 'it.'),\n                ('that', 'was'),\n                ('pass', 'by'),\n                ('and', 'let'),\n                ('was', 'among'),\n                ('was', 'waiting')])\ntc.assertEqual(len(dct['wendy']), 202)\ntc.assertEqual(len(dct['peter']), 243)",
-      "execution_count": 46,
-      "outputs": []
-    },
-    {
-      "metadata": {
-        "state": "normal"
-      },
-      "cell_type": "markdown",
-      "source": "### Random selection"
-    },
-    {
-      "metadata": {
-        "state": "normal"
-      },
-      "cell_type": "markdown",
-      "source": "One more thing before you start work on generating passages from an n-gram dictionary: we need a way to choose a random item from a sequence.\n\nThe [`random.choice` function](https://docs.python.org/3/library/random.html#random.choice) provides just this functionality. Consider (and feel free to play with) the following examples --- you should, at the very least, evaluate the cell a few separate times to see the results:"
-    },
-    {
-      "metadata": {
-        "state": "normal",
-        "trusted": true
-      },
-      "cell_type": "code",
-      "source": "import random\nprint(random.choice(['lions', 'tigers', 'bears']))\nprint(random.choice(range(100)))\nprint(random.choice([('really', 'like'), ('like', 'cake')]))",
-      "execution_count": 56,
-      "outputs": [
-        {
-          "name": "stdout",
-          "output_type": "stream",
-          "text": "tigers\n74\n('really', 'like')\n"
-        }
-      ]
-    },
-    {
-      "metadata": {
-        "state": "normal"
-      },
-      "cell_type": "markdown",
-      "source": "Note that a separate tutorial on random number generators (and other [`random` module](https://docs.python.org/3/library/random.html) APIs) will be posted separately, but for now just understanding how to use `random.choice` should be sufficient for this assignment."
-    },
-    {
-      "metadata": {
-        "state": "normal"
-      },
-      "cell_type": "markdown",
-      "source": "### `gen_passage`\n\nFinally, you're ready to implement `gen_passage`, which will take an n-gram dictionary and a length for the passage to generate (as a token count). \n\nAs described earlier, it will work as follows:\n\n1. Select a random key from the dictionary and use it as the start token of the passage. It will also serve as the current token for the next step.\n2. Select a random tuple from the list associated with the current token and append the sequence to the passage. The last token of the selected sequence will be the new current token.\n3. If the current token is a key in the dictionary then simply repeat step 2, otherwise select another random key from the map as the current token and append it to the passage before repeating step 2.\n\nYou will use `random.choice` whenever a random selection needs to be made. In order for your results to be reproduceable, be sure to sort the dictionary's keys (which, recall, are in no discernible order) before selecting a random one, like this (assuming `ngram_dict` is the dictionary):\n\n    random.choice(sorted(ngram_dict.keys()))"
-    },
-    {
-      "metadata": {
-        "trusted": true
-      },
-      "cell_type": "code",
-      "source": "\nfrom IPython.core.interactiveshell import InteractiveShell\nInteractiveShell.ast_node_interactivity = \"all\"\n\n",
-      "execution_count": 121,
-      "outputs": []
-    },
-    {
-      "metadata": {
-        "deletable": false,
-        "id": "gen_passage",
-        "nbgrader": {
-          "grade": true,
-          "grade_id": "gen_passage",
-          "locked": false,
-          "points": 5,
-          "schema_version": 1,
-          "solution": true
-        },
-        "starter_code": "import random\n\ndef gen_passage(ngram_dict, length=100):\n    ",
-        "state": "graded",
-        "trusted": true
-      },
-      "cell_type": "code",
-      "source": "import random\n\ndef gen_passage(ngram_dict, length=100):\n\n    new=sorted(ngram_dict.keys())\n    randKey=random.choice(new)\n    passage=randKey\n    tokCount=1\n    \n    while(tokCount<length):\n        randTup=random.choice(ngram_dict[randKey])\n        for x in randTup:  #append tuple elements to end of passage\n            passage+=' '+x\n            tokCount+=1\n        randKey=randTup[-1]  #new keyword is last word in tuple\n        \n        if randKey not in ngram_dict:   #if new keyword is not in the dictionary\n            randKey=random.choice(new)  #assign new, random keyword from dictionary\n            passage+=' '+randKey\n            tokCount+=1\n\n    return passage\n\n    ",
-      "execution_count": 149,
-      "outputs": []
-    },
-    {
-      "metadata": {
-        "state": "normal"
-      },
-      "cell_type": "markdown",
-      "source": "For the following test cases to work, it is *critical* that you do not invoke `random.choice` more than is absolutely necessary, and only as prescribed in the steps described above!\n\nNote that in addition to the automated test cases, we'll also be manually grading your code above."
-    },
-    {
-      "metadata": {
-        "deletable": false,
-        "editable": false,
-        "id": "gen_passage_test",
-        "nbgrader": {
-          "grade": true,
-          "grade_id": "gen_passage_test",
-          "locked": true,
-          "points": 5,
-          "schema_version": 1,
-          "solution": false
-        },
-        "state": "read_only",
-        "trusted": true
-      },
-      "cell_type": "code",
-      "source": "# (10 points)\n\nfrom unittest import TestCase\ntc = TestCase()\n\nrandom.seed(1234)\nsimple_toks = [t.lower() for t in 'I really really like cake.'.split()]\ntc.assertEqual(gen_passage(compute_ngrams(simple_toks), 10),\n               'like cake. i really really really really like cake. i')\n\nrandom.seed(1234)\nromeo_toks = [t.lower() for t in ROMEO_SOLILOQUY.split()]\ntc.assertEqual(gen_passage(compute_ngrams(romeo_toks), 10),\n               'too bold, \\'tis not night. see, how she leans her')",
-      "execution_count": 13,
-      "outputs": []
-    }
-  ],
-  "metadata": {
-    "kernelspec": {
-      "display_name": "Python 3",
-      "language": "python",
-      "name": "python3"
-    },
-    "language_info": {
-      "codemirror_mode": {
-        "name": "ipython",
-        "version": 3
-      },
-      "file_extension": ".py",
-      "mimetype": "text/x-python",
-      "name": "python",
-      "nbconvert_exporter": "python",
-      "pygments_lexer": "ipython3",
-      "version": "3.7.3"
-    },
-    "mimir": {
-      "project_id": "0b9a093e-a9d5-4faf-bd21-08ca65add4d5",
-      "last_submission_id": "7fb20b0d-675b-4ab3-b45f-69c13d7c41b3",
-      "data": {}
-    },
-    "varInspector": {
-      "cols": {
-        "lenName": 16,
-        "lenType": 16,
-        "lenVar": 40
-      },
-      "kernels_config": {
-        "python": {
-          "delete_cmd_postfix": "",
-          "delete_cmd_prefix": "del ",
-          "library": "var_list.py",
-          "varRefreshCmd": "print(var_dic_list())"
-        },
-        "r": {
-          "delete_cmd_postfix": ") ",
-          "delete_cmd_prefix": "rm(",
-          "library": "var_list.r",
-          "varRefreshCmd": "cat(var_dic_list()) "
-        }
-      },
-      "types_to_exclude": [
-        "module",
-        "function",
-        "builtin_function_or_method",
-        "instance",
-        "_Feature"
-      ],
-      "window_display": false
-    }
-  },
-  "nbformat": 4,
-  "nbformat_minor": 2
-}
+def compute_ngrams(toks, n=2):
+    
+    phrases=[]
+    for i in range(len(toks)-(n-1)):
+        phrases.append(toks[i:i+n])
+    
+    
+    """Returns an n-gram dictionary based on the provided list of tokens."""
+    newDict={}
+    for x in phrases:  #x=list
+        if x[0] not in newDict: #if the first word is not yet a keyword
+            newDict[x[0]]=[tuple([x for x in x[1:(n+1)]])]
+        else:
+            newDict[x[0]]+=[tuple([x for x in x[1:(n+1)]])]
+    
+    return newDict
+
+
+def gen_passage(ngram_dict, length=100):
+
+    new=sorted(ngram_dict.keys())
+    randKey=random.choice(new)
+    passage=randKey
+    tokCount=1
+    
+    while(tokCount<length):
+        randTup=random.choice(ngram_dict[randKey])
+        for x in randTup:  #append tuple elements to end of passage
+            passage+=' '+x
+            tokCount+=1
+        randKey=randTup[-1]  #new keyword is last word in tuple
+        
+        if randKey not in ngram_dict:   #if new keyword is not in the dictionary
+            randKey=random.choice(new)  #assign new, random keyword from dictionary
+            passage+=' '+randKey
+            tokCount+=1
+
+    return passage
+
