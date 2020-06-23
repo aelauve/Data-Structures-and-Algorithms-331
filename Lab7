@@ -1,0 +1,153 @@
+#Paired delimiter matching
+delim_openers = '{([<'
+delim_closers = '})]>'
+
+def check_delimiters(expr):
+    """Returns True if and only if `expr` contains only correctly matched delimiters, else returns False."""
+    s = Stack()
+    delim = None
+    for c in expr:
+        if c in delim_openers:
+            s.push(c)
+        elif c in delim_closers:
+            try:
+                e = s.pop()
+                ind = delim_openers.index(str(e))
+                if delim_closers.index(c) != ind:
+                    return False
+            except:
+                return False
+    return s.empty()
+
+
+
+#Infix to Postfix Conversion
+# you may find the following precedence dictionary useful
+prec = {'*': 2, '/': 2,
+        '+': 1, '-': 1}
+
+def infix_to_postfix(expr):
+    """Returns the postfix form of the infix expression found in `expr`"""
+    ops = Stack()
+    postfix = []
+    toks = expr.split()
+    
+    for c in toks:
+        if c.isdigit() == True:
+            postfix.append(c)
+        else:
+            if ops.empty() == True or ops.peek() == '(':
+                #push the token onto the stack
+                ops.push(c)
+            elif c == '(':
+                #push the token onto the stack
+                ops.push(c)
+            elif c == ')':
+                #pop the stack
+                #append all operators onto the list until a left parenthesis is popped
+                #discared parentheses
+                while ops.peek() != '(':
+                    postfix.append(ops.pop())
+                ops.pop() #getting rid of parentheses
+            elif prec[c] > prec[ops.peek()]:
+                #push the token onto the stack
+                ops.push(c)
+            elif prec[c] == prec[ops.peek()]:
+                #pop and append the top of the stack to the list
+                #push token onto stack
+                postfix.append(ops.pop())
+                ops.push(c)
+            elif prec[c] < prec[ops.peek()]:
+                #pop the stack and append it to the list
+                postfix.append(ops.pop())
+
+                if ops.empty() == True or ops.peek() == '(':
+                    #push the token onto the stack
+                    ops.push(c)
+                elif prec[c] > prec[ops.peek()]:
+                    #push the token onto the stack
+                    ops.push(c)
+                elif prec[c] == prec[ops.peek()]:
+                    #pop and append the top of the stack to the list
+                    #push token onto stack
+                    postfix.append(ops.pop())
+                    ops.push(c)
+                elif prec[c] < prec[ops.peek()]:
+                    #pop the stack and append it to the list
+                    postfix.append(ops.pop())
+    
+    while ops.empty() == False:
+        postfix.append(ops.pop())
+    
+    return ' '.join(postfix)
+
+
+#Circular, Array-backed Queue
+class Queue:
+    def __init__(self, limit=10):
+        self.data = [None] * limit
+        self.head = -1
+        self.tail = -1
+
+        #(self.head+1)%len(self.data)
+        
+    def enqueue(self, val):
+        if None not in self.data:
+            raise RuntimeError()
+        else:
+            if self.empty() == True:
+                self.head = self.tail = (self.head+1)%len(self.data)
+            else:
+                self.tail = (self.tail+1)%len(self.data)
+            self.data[self.tail] = val
+
+    def dequeue(self):
+        #make sure to set slot = None
+        #when empty, set head and tail attributes to -1
+        #raise RuntimeError when called on an empty queue
+        if self.empty() == True:
+            raise RuntimeError()
+        else:
+            ret = self.data[self.head]
+            self.data[self.head] = None
+            self.head = (self.head+1)%len(self.data)
+        if self.empty() == True:
+            self.head = self.tail = -1
+        return ret
+    
+    def resize(self, newsize):
+        assert(len(self.data) < newsize)
+        temp_list = []
+        while self.empty() == False:
+            temp_list.append(self.dequeue())
+        self.data = [None] * newsize
+        i = 0
+        while i != len(temp_list):
+            self.enqueue(temp_list[i])
+            i += 1
+            
+    
+    def empty(self):
+        ret = True
+        for x in range(len(self.data)):
+            if self.data[x] != None:
+                ret = False
+                break
+        return ret
+    
+    def __bool__(self):
+        return not self.empty()
+    
+    def __str__(self):
+        if not(self):
+            return ''
+        return ', '.join(str(x) for x in self)
+    
+    def __repr__(self):
+        return str(self)
+    
+    def __iter__(self):
+        i = self.head
+        while i != self.tail:
+            yield self.data[i]
+            i = (i+1)%len(self.data)
