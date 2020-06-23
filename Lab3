@@ -1,0 +1,109 @@
+import matplotlib.pylab as plt
+import numpy as np
+import math
+import timeit
+import random
+%matplotlib inline
+
+def f1(lst):
+    r = 0
+    n = 100
+    if len(lst) < n:
+        n = len(lst)
+    for x in range(n):
+        r += x
+        
+ns = np.linspace(1, 10_000, 50, dtype=int)
+ts = [timeit.timeit('f1(lst)', 
+                    setup='lst = list(range({})) ; random.shuffle(lst)'.format(n),
+                    number=100, 
+                    globals=globals()) 
+      for n in ns]
+
+plt.plot(ns, ts, 'or')
+plt.plot(ns, [.0015 for n in ns], '-g')
+plt.plot(ns, [.0005 for n in ns], '-b');
+
+def f2(x):
+    r = x / 2
+    d = 1e-10
+    while abs(x - r**2) > d:
+        r = (r + x/r) / 2
+    return r
+    
+# collect timing data into arrays/lists here
+ns = np.linspace(1, 100_000, 100, dtype=int)
+ts = [timeit.timeit('f2({})'.format(n), 
+                    number=100, 
+                    globals=globals()) 
+      for n in ns]
+      
+# plot your data and bounding functions here
+plt.plot(ns, ts, 'or')
+plt.plot(ns, [.00002*math.log(n,2) for n in ns], '-g')
+plt.plot(ns, [.000009*math.log(n,2) for n in ns], '-b');
+
+def f3(lst):
+    while True:
+        swapped = False
+        for i in range(len(lst)-1):
+            if lst[i] > lst[i+1]:
+                lst[i], lst[i+1] = lst[i+1], lst[i]
+                swapped = True
+        if not swapped:
+            break
+
+# collect timing data into arrays/lists here
+ns = np.linspace(1, 1_000, 50, dtype=int)
+ts = [timeit.timeit('f3(lst)', 
+                    setup='lst = list(range({})) ; random.shuffle(lst)'.format(n),
+                    number=50, 
+                    globals=globals()) 
+      for n in ns]
+
+# plot your data and bounding functions here
+plt.plot(ns, ts, 'or')
+plt.plot(ns, [.0000005*n*n for n in ns], '-g')
+plt.plot(ns, [.0000001*n*n for n in ns], '-b');
+
+def f4(n):
+    counters = [0] * n
+    while not all(counters):
+        for i in range(n):
+            if counters[i]:
+                counters[i] = 0
+            else:
+                counters[i] = 1
+                break
+
+# collect timing data into arrays/lists here
+ns = np.linspace(1, 20, 50, dtype=int)
+ts = [timeit.timeit('f4({})'.format(n), 
+                    number=10, 
+                    globals=globals()) 
+      for n in ns]
+      
+# plot your data and bounding functions here
+plt.plot(ns, ts, 'or')
+plt.plot(ns, [0.00002*(2**n) for n in ns], '-g')
+plt.plot(ns, [0.000002*(2**n) for n in ns], '-b');
+
+def f5(lst):
+    n = len(lst)
+    for i in range(n*100):
+        a = random.randrange(n)
+        b = random.randrange(n)
+        lst[a], lst[b] = lst[b], lst[a]
+        
+# collect timing data into arrays/lists here
+ns = np.linspace(1, 1_000, 10, dtype=int)
+ts = [timeit.timeit('f5(lst)', 
+                    setup='lst = list(range({}))'.format(n),
+                    number=5, 
+                    globals=globals()) 
+      for n in ns]
+
+# plot your data and bounding functions here
+plt.plot(ns, ts, 'or')
+plt.plot(ns, [0.0009*n for n in ns], '-g')
+plt.plot(ns, [0.0005*n for n in ns], '-b');
