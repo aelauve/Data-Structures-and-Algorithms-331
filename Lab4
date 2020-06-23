@@ -1,0 +1,249 @@
+class ArrayList:
+    def __init__(self):
+        self.data = ConstrainedList() # don't change this line!
+        self.counter = 0
+
+    
+    ### subscript-based access ###
+    
+    def _normalize_idx(self, idx):
+        nidx = idx
+        if nidx < 0:
+            nidx += len(self.data)
+            if nidx < 0:
+                nidx = 0
+        return nidx
+    
+    def __getitem__(self, idx):
+        """Implements `x = self[idx]`"""
+        assert(isinstance(idx, int))
+        nidx = self._normalize_idx(idx)
+        if nidx >= len(self.data):
+            raise IndexError
+        return self.data[nidx]
+
+    def __setitem__(self, idx, value):
+        """Implements `self[idx] = x`"""
+        assert(isinstance(idx, int))
+        nidx = self._normalize_idx(idx)
+        if nidx >= len(self.data):
+            raise IndexError
+        self.data[nidx] = value
+
+    def __delitem__(self, idx):
+        """Implements `del self[idx]`"""
+        assert(isinstance(idx, int))
+        nidx = self._normalize_idx(idx)
+        if nidx >= len(self.data):
+            raise IndexError
+        for i in range(nidx+1, len(self.data)):
+            self.data[i-1] = self.data[i]
+        del self.data[len(self.data)-1]
+    
+
+    ### stringification ###
+    
+    def __str__(self):
+        return '[' + ', '.join(str(x) for x in self) + ']'
+
+        """Implements `str(self)`. Returns '[]' if the list is empty, else
+        returns `str(x)` for all values `x` in this list, separated by commas
+        and enclosed by square brackets. E.g., for a list containing values
+        1, 2 and 3, returns '[1, 2, 3]'."""
+        
+        
+    def __repr__(self):
+        """Supports REPL inspection. (Same behavior as `str`.)"""
+        return str(self)
+            
+
+
+    ### single-element manipulation ###
+    
+    def append(self, value):
+        self.data.append(None)
+        self.data[len(self.data)-1] = value
+        self.counter += 1
+        """Appends value to the end of this list."""
+        
+    
+    def insert(self, idx, value):
+        nidx = self._normalize_idx(idx)
+        if nidx>len(self.data):
+            raise IndexError()
+        else:
+            if nidx != len(self.data):
+                self.append(None)
+                for x in range(len(self.data)-2, nidx-1,-1):
+                    self.data[x+1] = self.data[x]
+                self.data[nidx] = value
+            else:
+                self.append(value)
+        """Inserts value at position idx, shifting the original elements down the
+        list, as needed. Note that inserting a value at len(self) --- equivalent
+        to appending the value --- is permitted. Raises IndexError if idx is invalid."""
+        
+    
+    def pop(self, idx=-1):
+        nidx = self._normalize_idx(idx)
+        ret_val = self.data[nidx]
+        if nidx != len(self.data)-1:
+            for x in range (nidx,len(self.data)-1):
+                self.data[x] = self.data[x+1]
+        del self.data[len(self.data)-1]
+        return ret_val
+        self.counter -= 1
+        """Deletes and returns the element at idx (which is the last element,
+        by default)."""
+        
+    
+    def remove(self, value):
+        for x in range(len(self.data)):
+            if self.data[x] == value:
+                self.pop(idx=x)
+                break
+        else:
+            raise ValueError("Value not found!")
+        """Removes the first (closest to the front) instance of value from the
+        list. Raises a ValueError if value is not found in the list."""
+        
+    
+
+    ### predicates (T/F queries) ###
+    
+    def __eq__(self, other):
+        
+        if type(other) == type(self): #if they are both ArrayLists
+                if len(other.data) == len(self.data): #if they are the same length
+                    output = True
+                    for x in range(len(self.data)): #check every element in order
+                        if other[x] != self.data[x]: #if any element is not equal
+                            output = False #the arraylists are not equal
+                            break #break out of for loop
+                    return output
+                else:
+                    return False #if they are not of the same size
+        else:
+            return False #if they are not both ArrayLists
+        """Returns True if this ArrayList contains the same elements (in order) as
+        other. If other is not an ArrayList, returns False."""
+        
+
+    def __contains__(self, value):
+        output = False
+        for x in range(len(self.data)):
+            if self.data[x] == value:
+                output = True
+                break
+        return output
+        """Implements `val in self`. Returns true if value is found in this list."""
+        
+
+
+    ### queries ###
+    
+    def __len__(self):
+        return len(self.data)
+        """Implements `len(self)`"""
+        
+    
+    def min(self):
+        data_min = self.data[0]
+        for x in range(len(self.data)):
+            if self.data[x] < data_min:
+                data_min = self.data[x]
+        return data_min
+        """Returns the minimum value in this list."""
+        
+    
+    def max(self):
+        maximum = self.data[0]
+        for x in range(len(self.data)):
+            if self.data[x] > maximum:
+                maximum = self.data[x]
+        return maximum
+        """Returns the maximum value in this list."""
+        
+    
+    def index(self, value, i=0, j=None):
+        end_ind = 0
+        if j == None:
+            end_ind = len(self.data)
+        else:
+            end_ind = self._normalize_idx(j)
+
+        for x in range(i,end_ind):
+            if self.data[x] == value:
+                return x
+                break
+        else:
+            raise ValueError
+        """Returns the index of the first instance of value encountered in
+        this list between index i (inclusive) and j (exclusive). If j is not
+        specified, search through the end of the list for value. If value
+        is not in the list, raise a ValueError."""
+        
+    
+    def count(self, value):
+        val_count = 0
+        for x in range(len(self.data)):
+            if self.data[x] == value:
+                val_count += 1
+        return val_count
+        """Returns the number of times value appears in this list."""
+        
+
+    
+    ### bulk operations ###
+
+    def __add__(self, other):
+        out = ArrayList()
+        for x in range(len(self.data)):
+            out.append(self.data[x])
+        out_len = len(out.data)
+        for x in range(len(other.data)):
+            out.append(other[x])
+        return out
+        """Implements `self + other_array_list`. Returns a new ArrayList
+        instance that contains the values in this list followed by those 
+        of other."""
+        
+    
+    def clear(self):
+        self.data = ConstrainedList() # don't change this!
+        
+    def copy(self):
+        new_list = ArrayList()
+        for x in range(len(self.data)):
+            new_list.append(self.data[x])
+        return new_list
+        """Returns a new ArrayList instance (with a separate data store), that
+        contains the same values as this list."""
+        
+
+    def extend(self, other):
+        for x in range(len(other)):
+            self.append(other[x])
+        """Adds all elements, in order, from other --- an Iterable --- to this list."""
+        
+
+            
+    ### iteration ###
+        """Supports iteration (via `iter(self)`)"""
+    def __iter__(self): 
+        class ArrayListIterator:
+            def __init__(sself):
+                sself.curr_idx = 0
+    
+            def __next__(sself):
+                if sself.curr_idx < len(self.data):
+                    ret = self.data[sself.curr_idx]
+                    sself.curr_idx +=1
+                    return ret
+                else:
+                    raise StopIteration
+    
+            def __iter__(sself):
+                return sself
+    
+        return ArrayListIterator()
