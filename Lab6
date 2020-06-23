@@ -1,0 +1,97 @@
+class OrderedHashtable:
+    class Node:
+        """This class is used to create nodes in the singly linked "chains" in
+        each hashtable bucket."""
+        def __init__(self, index, next=None):
+            # don't rename the following attributes!
+            self.index = index
+            self.next = next
+        
+    def __init__(self, n_buckets=1000):
+        # the following two variables should be used to implement the "two-tiered" 
+        # ordered hashtable described in class -- don't rename them!
+        self.indices = [None] * n_buckets
+        self.entries = []
+        self.count = 0
+        #entries = an arraylist
+        
+    def __getitem__(self, key):
+        bidx = hash(key) % len(self.indices)
+        n = self.indices[bidx]
+        while n:
+            if self.entries[n.index][0] == key:
+                return self.entries[n.index][1]
+                break
+            n = n.next
+        else:
+            raise KeyError(str(key))
+    
+    def __setitem__(self, key, val):
+        bidx = hash(key) % len(self.indices)
+        n = self.indices[bidx] #head of the list
+        while n:
+            if self.entries[n.index][0] == key:
+                self.entries[n.index][1] = val
+                break
+            n = n.next
+        else:
+            self.entries.append([key, val])
+            self.indices[bidx] = OrderedHashtable.Node(len(self.entries)-1, next=self.indices[bidx])
+            self.count += 1
+    
+    def __delitem__(self, key):
+        bidx = hash(key) % len(self.indices)
+        n = self.indices[bidx] #head of the list
+        while n:
+            if self.entries[n.index][0] == key and n == self.indices[bidx]:
+                self.entries[n.index] = None
+                self.indices[bidx] = self.indices[bidx].next
+                self.count -= 1
+                break
+            elif n.next != None and self.entries[n.next.index][0] == key:
+                self.entries[n.next.index] = None
+                if n.next.next != None:
+                    n.next = n.next.next
+                else:
+                    n.next = None
+                self.count -= 1
+                break
+            n = n.next
+        else:
+            raise KeyError(str(key))
+            
+    def __contains__(self, key):
+        try:
+            _ = self[key]
+            return True
+        except:
+            return False
+        
+    def __len__(self):
+        return self.count
+    
+    def __iter__(self):
+        for n in range(len(self.entries)):
+            if self.entries[n]:
+                yield self.entries[n][0]
+    
+    def keys(self):
+        return iter(self)
+    
+    def values(self):
+        for n in range(len(self.entries)):
+            if self.entries[n]:
+                yield self.entries[n][1]
+                
+    def items(self):
+        for n in range(len(self.entries)):
+            if self.entries[n]:
+                yield tuple(self.entries[n])
+        
+                
+    def __str__(self):
+        return '{ ' + ', '.join(str(k) + ': ' + str(v) for k, v in self.items()) + ' }'
+            
+    def __repr__(self):
+        return str(self)
+        
